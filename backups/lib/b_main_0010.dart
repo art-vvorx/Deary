@@ -423,7 +423,7 @@ class DiaryCard extends StatelessWidget {
           Padding(
             padding: EdgeInsets.fromLTRB(16, 4, 16, 12),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 // Дата с форматированием
                 Container(
@@ -447,7 +447,7 @@ class DiaryCard extends StatelessWidget {
                 // Кнопка удаления
                 IconButton(
                   icon: Icon(Icons.delete_outline, size: 20),
-                  color: Colors.red[500],
+                  color: Colors.grey[500],
                   onPressed: onDelete,
                   padding: EdgeInsets.zero,
                   constraints: BoxConstraints(),

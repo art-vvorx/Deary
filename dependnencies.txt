@@ -1,2 +1,8 @@
-image_picker: ^1.0.4
-shared_preferences: ^2.2.2
+#Custom libraries
+  image_picker: ^1.0.4
+  shared_preferences: ^2.2.2
+  path_provider: ^2.1.1
+  permission_handler: ^12.0.1
+  path: ^1.8.3
+  flutter_platform_widgets: ^2.1.2
+  url_launcher: ^6.1.14

@@ -5,7 +5,6 @@ import 'dart:convert';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path/path.dart' as path;
-import 'package:url_launcher/url_launcher.dart';
 
 void main() {
   debugPrintRebuildDirtyWidgets = false;
@@ -55,11 +54,18 @@ class _DiaryScreenState extends State<DiaryScreen> {
 
   Future<void> _requestPermissions() async {
     if (Platform.isAndroid) {
-      await Permission.photos.request();
+      // Для Android 13+
+      if (await Permission.photos.request().isGranted) {
+        print('Разрешение на фото предоставлено');
+      }
+      
+      // Для старых версий
       var storageStatus = await Permission.storage.status;
       if (!storageStatus.isGranted) {
         await Permission.storage.request();
       }
+      
+      // Для Android 11+ - запрос на управление всеми файлами
       await Permission.manageExternalStorage.request();
     }
   }
@@ -67,32 +73,44 @@ class _DiaryScreenState extends State<DiaryScreen> {
   Future<String> _getStoragePath() async {
     if (Platform.isAndroid) {
       try {
+        // Прямой путь к корню внешнего хранилища
         String externalStoragePath = '/storage/emulated/0';
+        
+        // Проверяем существование пути
         final Directory externalDir = Directory(externalStoragePath);
         bool exists = await externalDir.exists();
         
         if (!exists) {
+          // Альтернативный путь
           externalStoragePath = '/sdcard';
           final Directory sdcardDir = Directory(externalStoragePath);
           exists = await sdcardDir.exists();
           
           if (!exists) {
+            // Еще один вариант
             externalStoragePath = '/storage/sdcard0';
           }
         }
         
+        // Создаем папку Deary
         final Directory dearyDir = Directory(path.join(externalStoragePath, 'Deary'));
         if (!await dearyDir.exists()) {
           try {
             await dearyDir.create(recursive: true);
+            print('Папка Deary создана: ${dearyDir.path}');
           } catch (e) {
+            print('Ошибка создания папки: $e');
+            // Fallback на директорию приложения
             final dir = await getApplicationDocumentsDirectory();
             return path.join(dir.path, 'Deary');
           }
         }
         
+        print('Используется путь: ${dearyDir.path}');
         return dearyDir.path;
       } catch (e) {
+        print('Ошибка получения пути: $e');
+        // Fallback
         final dir = await getApplicationDocumentsDirectory();
         return path.join(dir.path, 'Deary');
       }
@@ -119,7 +137,10 @@ class _DiaryScreenState extends State<DiaryScreen> {
     final entriesFilePath = path.join(_storagePath!, 'entries.json');
     final File entriesFile = File(entriesFilePath);
     
+    print('Загрузка из: $entriesFilePath');
+    
     if (!await entriesFile.exists()) {
+      print('Файл не найден, создаю пустой список');
       setState(() {
         entries = [];
       });
@@ -138,6 +159,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
         if (entry.imagePath != null && entry.imagePath!.isNotEmpty) {
           final file = File(entry.imagePath!);
           if (!await file.exists()) {
+            print('Файл изображения не найден: ${entry.imagePath}');
             entry.imagePath = null;
           }
         }
@@ -149,6 +171,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
         entries = loadedEntries;
       });
     } catch (e) {
+      print('Ошибка загрузки записей: $e');
       setState(() {
         entries = [];
       });
@@ -160,6 +183,8 @@ class _DiaryScreenState extends State<DiaryScreen> {
     
     final entriesFilePath = path.join(_storagePath!, 'entries.json');
     final File entriesFile = File(entriesFilePath);
+    
+    print('Сохранение в: $entriesFilePath');
     
     final entriesJson = entries.map((entry) => entry.toJson()).toList();
     await entriesFile.writeAsString(jsonEncode(entriesJson));
@@ -178,15 +203,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
         entries.insert(0, result);
       });
       await _saveEntries();
-    }
-  }
-  
-  void _launchURL() async {
-    try {
-      final url = Uri.parse('https://taplink.cc/b9v6r');
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } catch (e) {
-      print('Ошибка: $e');
     }
   }
 
@@ -208,7 +224,10 @@ class _DiaryScreenState extends State<DiaryScreen> {
               if (entry.imagePath != null && entry.imagePath!.isNotEmpty) {
                 try {
                   await File(entry.imagePath!).delete();
-                } catch (e) {}
+                  print('Файл удален: ${entry.imagePath}');
+                } catch (e) {
+                  print('Ошибка удаления файла: $e');
+                }
               }
               
               setState(() {
@@ -242,6 +261,13 @@ class _DiaryScreenState extends State<DiaryScreen> {
               CircularProgressIndicator(),
               SizedBox(height: 20),
               Text('Инициализация приложения...'),
+              if (_storagePath != null) ...[
+                SizedBox(height: 10),
+                Text(
+                  'Папка: $_storagePath',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
             ],
           ),
         ),
@@ -252,13 +278,46 @@ class _DiaryScreenState extends State<DiaryScreen> {
       appBar: AppBar(
         title: Text('Мой дневник'),
         centerTitle: true,
-		actions: [
-          // Кнопка информации (i) справа
-          IconButton(
-            icon: Icon(Icons.info_outline),
-            onPressed: _launchURL,
-		  ),
-		],
+        actions: [
+          if (_storagePath != null)
+            IconButton(
+              icon: Icon(Icons.info_outline),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text('Информация'),
+                    content: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Заметки сохраняются в:'),
+                        SizedBox(height: 8),
+                        SelectableText(
+                          _storagePath!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontFamily: Platform.isWindows ? 'Consolas' : 'Monospace',
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'Всего записей: ${entries.length}',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text('OK'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+        ],
       ),
       body: entries.isEmpty
           ? Center(
@@ -289,12 +348,38 @@ class _DiaryScreenState extends State<DiaryScreen> {
                         color: Colors.grey[500],
                       ),
                     ),
+                    SizedBox(height: 20),
+                    if (_storagePath != null)
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 40),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Файлы сохраняются в:',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            SizedBox(height: 5),
+                            SelectableText(
+                              _storagePath!,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey[600],
+                                fontFamily: Platform.isWindows ? 'Consolas' : 'Monospace',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
             )
           : ListView.builder(
-              padding: EdgeInsets.only(bottom: 100),
+              padding: EdgeInsets.all(16),
               itemCount: entries.length,
               itemBuilder: (context, index) {
                 final entry = entries[index];
@@ -305,8 +390,8 @@ class _DiaryScreenState extends State<DiaryScreen> {
               },
             ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: Padding(
-        padding: EdgeInsets.only(bottom: 15),
+      floatingActionButton: Container(
+        margin: EdgeInsets.only(bottom: 16),
         child: FloatingActionButton.extended(
           onPressed: _addNewEntry,
           icon: Icon(Icons.add),
@@ -361,18 +446,10 @@ class DiaryCard extends StatelessWidget {
 
   DiaryCard({required this.entry, required this.onDelete});
 
-  // Форматирование даты с ведущими нулями
-  String _formatDate(DateTime date) {
-    final day = date.day.toString().padLeft(2, '0');
-    final month = date.month.toString().padLeft(2, '0');
-    final year = date.year.toString();
-    return '$day.$month.$year';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: EdgeInsets.all(16),
+      margin: EdgeInsets.only(bottom: 16),
       elevation: 3,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -381,28 +458,64 @@ class DiaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ЗАГОЛОВОК
+          // Заголовок и дата
           Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 12),
-            child: SelectableText(
-              entry.title,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue[800],
-              ),
-              maxLines: null,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: SelectableText(
+                    entry.title,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue[800],
+                    ),
+                    maxLines: 3,
+                    textAlign: TextAlign.left,
+                  ),
+                ),
+                Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${entry.date.day}.${entry.date.month}.${entry.date.year}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    IconButton(
+                      icon: Icon(Icons.delete_outline, size: 20),
+                      color: Colors.grey[500],
+                      onPressed: onDelete,
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
           
-          // Изображение если есть
+          // Фото с сохранением пропорций
           if (entry.imagePath != null && entry.imagePath!.isNotEmpty)
             _buildImageWithAspectRatio(entry.imagePath!),
           
-          // Текст записи если есть
+          // Текст записи
           if (entry.text.isNotEmpty)
             Padding(
-              padding: EdgeInsets.fromLTRB(16, entry.imagePath != null ? 12 : 0, 16, 8),
+              padding: EdgeInsets.fromLTRB(16, entry.imagePath != null ? 12 : 0, 16, 16),
               child: Container(
                 width: double.infinity,
                 child: SelectableText(
@@ -417,44 +530,7 @@ class DiaryCard extends StatelessWidget {
               ),
             )
           else if (entry.imagePath != null)
-            SizedBox(height: 8),
-          
-          // ДАТА И КНОПКА УДАЛЕНИЯ - в самом низу справа
-          Padding(
-            padding: EdgeInsets.fromLTRB(16, 4, 16, 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Дата с форматированием
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    _formatDate(entry.date), // Используем отформатированную дату
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.blue[700],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                
-                SizedBox(width: 8),
-                
-                // Кнопка удаления
-                IconButton(
-                  icon: Icon(Icons.delete_outline, size: 20),
-                  color: Colors.red[500],
-                  onPressed: onDelete,
-                  padding: EdgeInsets.zero,
-                  constraints: BoxConstraints(),
-                ),
-              ],
-            ),
-          ),
+            SizedBox(height: 16),
         ],
       ),
     );
@@ -512,12 +588,15 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           final newFileName = 'photo_${timestamp}_$fileName';
           final destPath = path.join(widget.storagePath!, newFileName);
           
+          print('Копирую фото в: $destPath');
+          
           try {
             await File(image.path).copy(destPath);
             setState(() {
               _imagePath = destPath;
             });
           } catch (e) {
+            print('Ошибка копирования: $e');
             setState(() {
               _imagePath = image.path;
             });
@@ -529,7 +608,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
         }
       }
     } catch (e) {
-      // Ошибка при выборе изображения
+      print('Ошибка выбора фото: $e');
     }
   }
 
@@ -617,12 +696,26 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           icon: Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        actions: [
+          TextButton(
+            onPressed: _saveEntry,
+            child: Text(
+              'Сохранить',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Поле для заголовка
             TextField(
               controller: _titleController,
               decoration: InputDecoration(
@@ -641,6 +734,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             ),
             SizedBox(height: 20),
 
+            // Блок для добавления фотографии
             Text(
               'Добавить фотографию (необязательно)',
               style: TextStyle(
@@ -651,6 +745,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             ),
             SizedBox(height: 12),
 
+            // Превью фотографии
             _buildPreviewImage(),
 
             ElevatedButton.icon(
@@ -666,6 +761,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             ),
             SizedBox(height: 20),
 
+            // Поле для текста
             TextField(
               controller: _textController,
               decoration: InputDecoration(
@@ -682,6 +778,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             ),
             SizedBox(height: 30),
 
+            // Информация о сохранении
             if (widget.storagePath != null)
               Container(
                 padding: EdgeInsets.all(12),
@@ -706,7 +803,8 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                   ],
                 ),
               ),
-            SizedBox(height: 5),
+
+            // Кнопка сохранения внизу
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(

@@ -5,7 +5,6 @@ import 'dart:convert';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path/path.dart' as path;
-import 'package:url_launcher/url_launcher.dart';
 
 void main() {
   debugPrintRebuildDirtyWidgets = false;
@@ -180,15 +179,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
       await _saveEntries();
     }
   }
-  
-  void _launchURL() async {
-    try {
-      final url = Uri.parse('https://taplink.cc/b9v6r');
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } catch (e) {
-      print('Ошибка: $e');
-    }
-  }
 
   void _deleteEntry(int index) async {
     showDialog(
@@ -252,13 +242,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
       appBar: AppBar(
         title: Text('Мой дневник'),
         centerTitle: true,
-		actions: [
-          // Кнопка информации (i) справа
-          IconButton(
-            icon: Icon(Icons.info_outline),
-            onPressed: _launchURL,
-		  ),
-		],
       ),
       body: entries.isEmpty
           ? Center(
@@ -294,7 +277,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
               ),
             )
           : ListView.builder(
-              padding: EdgeInsets.only(bottom: 100),
+              padding: EdgeInsets.only(bottom: 80),
               itemCount: entries.length,
               itemBuilder: (context, index) {
                 final entry = entries[index];
@@ -306,7 +289,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
             ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: Padding(
-        padding: EdgeInsets.only(bottom: 15),
+        padding: EdgeInsets.only(bottom: 20),
         child: FloatingActionButton.extended(
           onPressed: _addNewEntry,
           icon: Icon(Icons.add),
@@ -361,14 +344,6 @@ class DiaryCard extends StatelessWidget {
 
   DiaryCard({required this.entry, required this.onDelete});
 
-  // Форматирование даты с ведущими нулями
-  String _formatDate(DateTime date) {
-    final day = date.day.toString().padLeft(2, '0');
-    final month = date.month.toString().padLeft(2, '0');
-    final year = date.year.toString();
-    return '$day.$month.$year';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -381,28 +356,92 @@ class DiaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ЗАГОЛОВОК
+          // ЗАГОЛОВОК, ДАТА И КНОПКА В ОДНОЙ ГОРИЗОНТАЛЬНОЙ ЛИНИИ
           Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 12),
-            child: SelectableText(
-              entry.title,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue[800],
-              ),
-              maxLines: null,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.baseline, // Выравниваем по базовой линии текста
+              textBaseline: TextBaseline.alphabetic, // Используем алфавитную базовую линию
+              children: [
+                // ЗАГОЛОВОК СЛЕВА - занимает всё доступное пространство
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: SelectableText(
+                      entry.title,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue[800],
+                      ),
+                      maxLines: null,
+                      strutStyle: StrutStyle(
+                        fontSize: 20, // Указываем высоту строки
+                        height: 1.2, // Межстрочный интервал
+                        leading: 0, // Убираем лишние отступы
+                      ),
+                    ),
+                  ),
+                ),
+                
+                // ДАТА И КНОПКА УДАЛЕНИЯ СПРАВА - фиксированная ширина
+                Container(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.baseline, // Тоже выравниваем по базовой линии
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      // Дата в красивом контейнере
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[50],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${entry.date.day}.${entry.date.month}.${entry.date.year}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue[700],
+                            fontWeight: FontWeight.w500,
+                          ),
+                          strutStyle: StrutStyle(
+                            fontSize: 12,
+                            height: 1.0,
+                            leading: 0,
+                          ),
+                        ),
+                      ),
+                      
+                      SizedBox(width: 8),
+                      
+                      // Кнопка удаления - выровняем по центру относительно текста
+                      Container(
+                        height: 24, // Фиксированная высота для кнопки
+                        child: Center( // Центрируем иконку по вертикали
+                          child: IconButton(
+                            icon: Icon(Icons.delete_outline, size: 18),
+                            color: Colors.grey[500],
+                            onPressed: onDelete,
+                            padding: EdgeInsets.zero,
+                            constraints: BoxConstraints(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
           
-          // Изображение если есть
           if (entry.imagePath != null && entry.imagePath!.isNotEmpty)
             _buildImageWithAspectRatio(entry.imagePath!),
           
-          // Текст записи если есть
           if (entry.text.isNotEmpty)
             Padding(
-              padding: EdgeInsets.fromLTRB(16, entry.imagePath != null ? 12 : 0, 16, 8),
+              padding: EdgeInsets.fromLTRB(16, entry.imagePath != null ? 12 : 0, 16, 16),
               child: Container(
                 width: double.infinity,
                 child: SelectableText(
@@ -417,44 +456,7 @@ class DiaryCard extends StatelessWidget {
               ),
             )
           else if (entry.imagePath != null)
-            SizedBox(height: 8),
-          
-          // ДАТА И КНОПКА УДАЛЕНИЯ - в самом низу справа
-          Padding(
-            padding: EdgeInsets.fromLTRB(16, 4, 16, 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Дата с форматированием
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    _formatDate(entry.date), // Используем отформатированную дату
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.blue[700],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                
-                SizedBox(width: 8),
-                
-                // Кнопка удаления
-                IconButton(
-                  icon: Icon(Icons.delete_outline, size: 20),
-                  color: Colors.red[500],
-                  onPressed: onDelete,
-                  padding: EdgeInsets.zero,
-                  constraints: BoxConstraints(),
-                ),
-              ],
-            ),
-          ),
+            SizedBox(height: 16),
         ],
       ),
     );
@@ -617,6 +619,19 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           icon: Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        actions: [
+          TextButton(
+            onPressed: _saveEntry,
+            child: Text(
+              'Сохранить',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16),
@@ -706,7 +721,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                   ],
                 ),
               ),
-            SizedBox(height: 5),
+
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
