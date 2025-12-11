@@ -181,7 +181,16 @@ class _DiaryScreenState extends State<DiaryScreen> {
     }
   }
   
-  void _launchURL() async {
+  void _launchDonateURL() async {
+    try {
+      final url = Uri.parse('https://revolut.me/bulatnikow');
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      print('Ошибка: $e');
+    }
+  }
+  
+  void _launchMyURL() async {
     try {
       final url = Uri.parse('https://taplink.cc/b9v6r');
       await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -253,10 +262,14 @@ class _DiaryScreenState extends State<DiaryScreen> {
         title: Text('Мой дневник'),
         centerTitle: true,
 		actions: [
-          // Кнопка информации (i) справа
+          // Кнопка информации (i) и доната справа
           IconButton(
+            icon: Icon(Icons.monetization_on),
+            onPressed: _launchDonateURL,
+		  ),
+		  IconButton(
             icon: Icon(Icons.info_outline),
-            onPressed: _launchURL,
+            onPressed: _launchMyURL,
 		  ),
 		],
       ),
