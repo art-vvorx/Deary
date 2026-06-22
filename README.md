@@ -1,9 +1,16 @@
-## Загрузить приложение:
-<br>- Для Android: https://github.com/art-vvorx/Deary/raw/refs/heads/main/releases/Deary.apk
-<br>- Для Windows: https://github.com/art-vvorx/Deary/raw/refs/heads/main/releases/Deary_Windows.zip
+## Загрузить приложение
 
-![Скриншот 1](https://raw.githubusercontent.com/art-vvorx/Deary/refs/heads/main/screnshots/1.jfif)
+**Для Android:**  
+[Скачать APK](https://github.com/art-vvorx/Deary/raw/refs/heads/main/releases/Deary.apk)
 
-![Скриншот 2](https://raw.githubusercontent.com/art-vvorx/Deary/refs/heads/main/screnshots/1%20(1).jfif)
+**Для Windows:**  
+[Скачать ZIP](https://github.com/art-vvorx/Deary/raw/refs/heads/main/releases/Deary_Windows.zip)
 
-![Скриншот 3](https://raw.githubusercontent.com/art-vvorx/Deary/refs/heads/main/screnshots/1%20(3).jfif)
+---
+
+## Скриншоты
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap;">
+  <img src="https://raw.githubusercontent.com/art-vvorx/Deary/refs/heads/main/screnshots/1%20(1).jfif" width="400">
+  <img src="https://raw.githubusercontent.com/art-vvorx/Deary/refs/heads/main/screnshots/1%20(3).jfif" width="400">
+</div>
