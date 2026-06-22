@@ -1,6 +1,6 @@
-Загрузить приложение:
-  <br>Для Android: https://github.com/art-vvorx/Deary/raw/refs/heads/main/releases/Deary.apk
-  <br>Для Windows: https://github.com/art-vvorx/Deary/raw/refs/heads/main/releases/Deary_Windows.zip
+## Загрузить приложение:
+  <br>* Для Android: https://github.com/art-vvorx/Deary/raw/refs/heads/main/releases/Deary.apk
+  <br>* Для Windows: https://github.com/art-vvorx/Deary/raw/refs/heads/main/releases/Deary_Windows.zip
 
 ## Скриншоты приложения
 
